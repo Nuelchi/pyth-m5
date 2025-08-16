@@ -79,6 +79,17 @@
         <input id="size_percent" type="number" value="95" />
       </div>
       <div class="cell">
+        <label>Sizing mode</label>
+        <select id="sizing_mode">
+          <option value="percent" selected>Percent of cash</option>
+          <option value="lots">Lots</option>
+        </select>
+      </div>
+      <div class="cell">
+        <label>Lots/trade</label>
+        <input id="lots_per_trade" type="number" step="0.01" value="1" />
+      </div>
+      <div class="cell">
         <label>Stream delay (ms)</label>
         <input id="stream_delay_ms" type="number" value="150" />
       </div>
@@ -225,7 +236,11 @@ class InlineStrategy(bt.Strategy):
       // If a strategy name is provided, prefer it and do NOT send inline code
       const strategy_name = strategy_name_input.length ? strategy_name_input : null;
       const strategy_code = strategy_name ? null : (strategy_code_input.trim().length ? strategy_code_input : null);
-      const size_percent = parseFloat(document.getElementById('size_percent').value || "95"); const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150"); const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, stream_delay_ms, strategy_name, strategy_code };
+      const size_percent = parseFloat(document.getElementById('size_percent').value || "95");
+      const sizing_mode = document.getElementById('sizing_mode').value;
+      const lots_per_trade = parseFloat(document.getElementById('lots_per_trade').value || "1");
+      const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150");
+      const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, sizing_mode, lots_per_trade, stream_delay_ms, strategy_name, strategy_code };
       // normalize symbol by source/market for convenience
       if (source === 'oanda') {
         // Oanda wants EUR_USD style
@@ -239,6 +254,21 @@ class InlineStrategy(bt.Strategy):
       const json = await res.json();
       if (!res.ok) { log('Error: ' + (json.error || res.statusText)); return; }
       const runId = json.run_id; log('Run ' + runId + ' started');
+      // set price format based on market/symbol for realistic price scale
+      (function setPriceFormat(){
+        const sym = (body.symbols && body.symbols[0]) ? String(body.symbols[0]).toUpperCase() : '';
+        let precision = 2;
+        if (market === 'forex') {
+          if (sym.includes('JPY')) precision = 3;        // e.g., USDJPY ~ 151.123
+          else if (sym.includes('XAU')) precision = 2;    // Gold often 2 decimals
+          else precision = 5;                              // Most FX majors 5 decimals
+        } else if (market === 'crypto') {
+          precision = sym.includes('BTC') ? 2 : 4;
+        } else {
+          precision = 2; // stocks default
+        }
+        candleSeries.applyOptions({ priceFormat: { type: 'price', precision, minMove: Math.pow(10, -precision) } });
+      })();
       const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?run_id=' + runId);
       // reset series and markers for a fresh run
       window.series = {};
