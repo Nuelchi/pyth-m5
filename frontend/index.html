@@ -240,6 +240,8 @@ class InlineStrategy(bt.Strategy):
           metricsDiv.innerHTML = `
             <div style="padding:10px;border-top:1px solid #1f2a33;background:#0e151b">
               <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div><b>Starting Portfolio Value</b>: ${cur(s.pv_start)}</div>
+                <div><b>Final Portfolio Value</b>: ${cur(s.pv_end ?? pv)}</div>
                 <div><b>PV</b>: ${fmt(pv,2)}</div>
                 <div><b>Total Return %</b>: ${fmt(rtot100,2)}</div>
                 <div><b>Max DD %</b>: ${fmt(dd,2)}</div>
