@@ -24,13 +24,26 @@
     <div class="row">
       <div class="cell">
         <label>Symbol</label>
-        <input id="symbol" value="EURUSD=X" />
+        <select id="symbol_select" style="min-width:140px"></select>
+      </div>
+      <div class="cell">
+        <label>Custom symbol</label>
+        <input id="symbol" value="EUR/USD" />
+      </div>
+      <div class="cell">
+        <label>Market</label>
+        <select id="market">
+          <option value="forex" selected>Forex</option>
+          <option value="stocks">Stocks</option>
+          <option value="crypto">Crypto</option>
+        </select>
       </div>
       <div class="cell">
         <label>Source</label>
         <select id="source">
           <option value="yfinance" selected>yfinance</option>
           <option value="mt5">MT5</option>
+          <option value="oanda">Oanda</option>
         </select>
       </div>
       <div class="cell">
@@ -165,7 +178,40 @@ class InlineStrategy(bt.Strategy):
         ctx.fillRect(x - bw/2, top, bw, Math.max(1, bot-top));
       }
 }
+    // ---- symbols dropdown logic ----
+    const SYMBOLS = {
+      forex: ["EUR/USD","GBP/USD","USD/JPY","XAU/USD","AUD/USD","USD/CAD"],
+      stocks: ["AAPL","MSFT","TSLA","NVDA","SPY","QQQ"],
+      crypto: ["BTC/USD","ETH/USD","SOL/USD","BNB/USD","XRP/USD"],
+    };
+    const marketEl = document.getElementById('market');
+    const sourceEl = document.getElementById('source');
+    const symbolSel = document.getElementById('symbol_select');
+    const symbolInput = document.getElementById('symbol');
+    function populateSymbols() {
+      const market = marketEl.value;
+      const list = SYMBOLS[market] || [];
+      symbolSel.innerHTML = '';
+      [...list, 'Custom...'].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        symbolSel.appendChild(opt);
+      });
+      symbolSel.value = list[0] || 'Custom...';
+      symbolInput.disabled = symbolSel.value !== 'Custom...';
+      if (symbolSel.value !== 'Custom...') symbolInput.value = symbolSel.value;
+    }
+    symbolSel.addEventListener('change', () => {
+      symbolInput.disabled = symbolSel.value !== 'Custom...';
+      if (symbolSel.value !== 'Custom...') symbolInput.value = symbolSel.value;
+    });
+    marketEl.addEventListener('change', populateSymbols);
+    sourceEl.addEventListener('change', populateSymbols);
+    populateSymbols();
+
     document.getElementById('run').onclick = async () => {
+      const market = document.getElementById('market').value;
       const symbol = document.getElementById('symbol').value.trim(); const symbols = [symbol];
       const timeframe = document.getElementById('timeframe').value;
       const source = document.getElementById('source').value;
@@ -180,6 +226,15 @@ class InlineStrategy(bt.Strategy):
       const strategy_name = strategy_name_input.length ? strategy_name_input : null;
       const strategy_code = strategy_name ? null : (strategy_code_input.trim().length ? strategy_code_input : null);
       const size_percent = parseFloat(document.getElementById('size_percent').value || "95"); const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150"); const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, stream_delay_ms, strategy_name, strategy_code };
+      // normalize symbol by source/market for convenience
+      if (source === 'oanda') {
+        // Oanda wants EUR_USD style
+        if (market === 'forex' && symbol.includes('/')) body.symbols = [symbol.replace('/', '_')];
+      } else if (source === 'yfinance') {
+        // yfinance: stocks like AAPL, FX like EURUSD=X, crypto like BTC-USD
+        if (market === 'forex' && !symbol.endsWith('=X')) body.symbols = [symbol.replace('/', '') + '=X'];
+        if (market === 'crypto' && symbol.includes('/')) body.symbols = [symbol.replace('/', '-')];
+      }
       const res = await fetch('/backtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const json = await res.json();
       if (!res.ok) { log('Error: ' + (json.error || res.statusText)); return; }

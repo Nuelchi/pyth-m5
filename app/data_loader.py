@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
+import os
+import math
+import requests
 
 import pandas as pd
 
@@ -117,6 +120,94 @@ def load_mt5(symbol: str, timeframe: str, start: datetime, end: datetime) -> pd.
 		return df
 	finally:
 		mt5.shutdown()
+
+
+def _estimate_bars(timeframe: str, start: datetime, end: datetime) -> int:
+	seconds = max(0, int((end - start).total_seconds()))
+	if timeframe == "M1":
+		step = 60
+	elif timeframe == "M5":
+		step = 300
+	elif timeframe == "M15":
+		step = 900
+	elif timeframe == "M30":
+		step = 1800
+	elif timeframe == "H1":
+		step = 3600
+	elif timeframe == "H4":
+		step = 14400
+	else:
+		step = 86400
+	return max(1, math.ceil(seconds / step))
+
+
+OANDA_GRANULARITY_MAP: Dict[str, str] = {
+	"M1": "M1",
+	"M5": "M5",
+	"M15": "M15",
+	"M30": "M30",
+	"H1": "H1",
+	"H4": "H4",
+	"D1": "D",
+}
+
+
+def load_oanda(symbol: str, timeframe: str, start: datetime, end: datetime) -> pd.DataFrame:
+	"""Load candles from Oanda v20 REST API.
+
+	Requires env vars:
+	- OANDA_API_KEY
+	- OANDA_ENV = practice|live (default practice)
+
+	Symbol should be Oanda instrument format, e.g., EUR_USD, XAU_USD.
+	"""
+	api_key = os.getenv("OANDA_API_KEY")
+	if not api_key:
+		raise RuntimeError("OANDA_API_KEY not set in environment")
+	env = (os.getenv("OANDA_ENV") or "practice").lower()
+	base = "https://api-fxpractice.oanda.com" if env != "live" else "https://api-fxtrade.oanda.com"
+	gran = OANDA_GRANULARITY_MAP.get(timeframe)
+	if not gran:
+		raise ValueError(f"Unsupported timeframe for Oanda: {timeframe}")
+
+	headers = {"Authorization": f"Bearer {api_key}"}
+	# Oanda caps results per call (typically 5000). We'll use count=min(estimated, 5000) anchored at 'end'.
+	est = _estimate_bars(timeframe, start, end)
+	count = min(est, 5000)
+	params = {
+		"granularity": gran,
+		"count": count,
+		"price": "M",  # midpoint
+		"to": end.replace(microsecond=0).isoformat() + "Z",
+	}
+	url = f"{base}/v3/instruments/{symbol}/candles"
+	r = requests.get(url, headers=headers, params=params, timeout=30)
+	if r.status_code != 200:
+		raise RuntimeError(f"Oanda error {r.status_code}: {r.text[:200]}")
+	data = r.json()
+	candles = data.get("candles") or []
+	if not candles:
+		raise ValueError(f"No Oanda data for {symbol}")
+	rows = []
+	for c in candles:
+		if not c.get("complete"):
+			continue
+		ts = pd.to_datetime(c["time"])  # RFC3339Z
+		mid = c.get("mid") or {}
+		rows.append({
+			"time": ts,
+			"open": float(mid.get("o")),
+			"high": float(mid.get("h")),
+			"low": float(mid.get("l")),
+			"close": float(mid.get("c")),
+			"volume": float(c.get("volume") or 0.0),
+		})
+	df = pd.DataFrame(rows)
+	if df.empty:
+		raise ValueError(f"No Oanda data for {symbol}")
+	df.set_index("time", inplace=True)
+	df = _ensure_naive_utc_index(df)
+	return df
 
 
 def timeframe_to_bt(timeframe: str) -> Tuple[int, int]:

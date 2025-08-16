@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Type
 import backtrader as bt
 import pandas as pd
 
-from .data_loader import load_yfinance, load_mt5
+from .data_loader import load_yfinance, load_mt5, load_oanda
 from .ws_manager import WebSocketManager
 
 
@@ -28,6 +28,8 @@ def _load_df(symbol: str, source: str, timeframe: str, start: datetime, end: dat
 		return load_yfinance(symbol, timeframe, start, end)
 	if source == "mt5":
 		return load_mt5(symbol, timeframe, start, end)
+	if source == "oanda":
+		return load_oanda(symbol, timeframe, start, end)
 	raise ValueError(f"Unsupported data source: {source}")
 
 

@@ -39,7 +39,7 @@ class BacktestRequest(BaseModel):
     symbol: Optional[str] = None
     symbols: Optional[List[str]] = None
     timeframe: str = Field("H1", description="Timeframe code, e.g. H1, M15, D1")
-    source: Literal["yfinance", "mt5"] = Field("yfinance")
+    source: Literal["yfinance", "mt5", "oanda"] = Field("yfinance")
     start: Optional[datetime] = None
     end: Optional[datetime] = None
     cash: float = 10000.0
