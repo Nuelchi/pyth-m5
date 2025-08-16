@@ -234,7 +234,9 @@ class InlineStrategy(bt.Strategy):
           const sqn = (m.sqn && (m.sqn.sqn ?? m.sqn['sqn'])) ?? null;
           const trades = (m.trades && (m.trades.total?.closed ?? m.trades.total?.total)) ?? null;
           const fmt = (x, d=2) => (x==null || isNaN(x)) ? '-' : Number(x).toFixed(d);
+          const cur = (x) => (x==null || isNaN(x)) ? '-' : ('$' + Number(x).toFixed(2));
           const metricsDiv = document.getElementById('metrics');
+          const s = (m && m.summary) || {};
           metricsDiv.innerHTML = `
             <div style="padding:10px;border-top:1px solid #1f2a33;background:#0e151b">
               <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -245,7 +247,28 @@ class InlineStrategy(bt.Strategy):
                 <div><b>SQN</b>: ${fmt(sqn,2)}</div>
                 <div><b>Trades</b>: ${trades ?? '-'}</div>
               </div>
-              <pre style="margin-top:8px;color:#8b98a5">${JSON.stringify(m, null, 2)}</pre>
+              <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+                <div><b>Strat Return %</b>: ${fmt(s.strategy_return_pct,2)}</div>
+                <div><b>Buy&Hold %</b>: ${fmt(s.buy_hold_return_pct,2)}</div>
+                <div><b>Strat vs B&H %</b>: ${fmt(s.strategy_vs_buy_hold_pct,2)}</div>
+                <div><b>Strat Max DD %</b>: ${fmt(s.strategy_max_dd_pct,2)}</div>
+                <div><b>B&H Max DD %</b>: ${fmt(s.buy_hold_max_dd_pct,2)}</div>
+                <div><b>DD Diff %</b>: ${fmt(s.drawdown_diff_pct,2)}</div>
+                <div><b>Win Rate %</b>: ${fmt(s.win_rate_pct,2)}</div>
+              </div>
+              <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+                <div style="background:#0e151b;border:1px solid #1f2a33;border-radius:8px;padding:8px">
+                  <div style="font-weight:600;margin-bottom:4px">Trade Analysis</div>
+                  <div>Total Trades: ${s.total_trades ?? '-'}</div>
+                  <div>Winning Trades: ${s.won_trades ?? '-'}</div>
+                  <div>Losing Trades: ${s.lost_trades ?? '-'}</div>
+                  <div>Win Rate: ${fmt(s.win_rate_pct,2)}%</div>
+                  <div>Average Profit per Trade: ${cur(s.avg_pnl_per_trade)}</div>
+                  <div>Largest Win: ${cur(s.largest_win)}</div>
+                  <div>Largest Loss: ${cur(s.largest_loss)}</div>
+                </div>
+              </div>
+              
             </div>`;
           const tradesDiv = document.getElementById('trades');
           const rows = (msg.trades||[]).slice(-50).map(t => `<tr><td>${t.time}</td><td>${t.type}</td><td>${t.size??"-"}</td><td>${t.price??"-"}</td><td>${t.pnl??"-"}</td></tr>`).join("");

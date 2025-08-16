@@ -65,8 +65,11 @@ async def run_backtest_task(
 		pass
 
 	# Load data
+	first_close_series = None
 	for symbol in symbols:
 		df = await loop.run_in_executor(None, _load_df, symbol, source, timeframe, start, end)
+		if first_close_series is None and 'close' in df.columns and not df.empty:
+			first_close_series = df['close'].copy()
 		feed = PandasData(dataname=df)
 		cerebro.adddata(feed, name=symbol)
 
@@ -91,25 +94,36 @@ async def run_backtest_task(
 		def notify_order(self, order):
 			if order.status == order.Completed:
 				dt = bt.num2date(self.datas[0].datetime[0])
-				self._trade_log.append({
+				# Classify action: if position is flat after execution, treat as 'close'
+				pos_size = float(getattr(self.position, 'size', 0.0) or 0.0)
+				action = 'buy' if order.isbuy() else 'sell'
+				if pos_size == 0.0:
+					action = 'close'
+				entry = {
 					'time': dt.isoformat(),
-					'type': 'buy' if order.isbuy() else 'sell',
+					'type': action,
 					'price': float(order.executed.price),
 					'size': float(order.executed.size),
-				})
-				_broadcast(outer_loop, outer_ws_manager, outer_run_id, { 'type': 'trade', 'trade': self._trade_log[-1] })
+				}
+				self._trade_log.append(entry)
+				_broadcast(outer_loop, outer_ws_manager, outer_run_id, { 'type': 'trade', 'trade': entry })
 
 		def notify_trade(self, trade):
 			if trade.isclosed:
 				dt = bt.num2date(self.datas[0].datetime[0])
-				self._trade_log.append({
-					'time': dt.isoformat(),
-					'type': 'close',
-					'pnl': float(getattr(trade, 'pnlcomm', trade.pnl)),
-					'size': float(trade.size),
-					'price': float(self.datas[0].close[0]),
-				})
-				_broadcast(outer_loop, outer_ws_manager, outer_run_id, { 'type': 'trade', 'trade': self._trade_log[-1] })
+				pnl_val = float(getattr(trade, 'pnlcomm', trade.pnl))
+				# If the last entry is a 'close' for this bar, enrich it with PnL instead of emitting a duplicate marker
+				if self._trade_log and self._trade_log[-1].get('type') == 'close' and self._trade_log[-1].get('time') == dt.isoformat():
+					self._trade_log[-1]['pnl'] = pnl_val
+				else:
+					self._trade_log.append({
+						'time': dt.isoformat(),
+						'type': 'close',
+						'pnl': pnl_val,
+						'size': float(trade.size),
+						'price': float(self.datas[0].close[0]),
+					})
+				# Do not broadcast here to avoid duplicate close markers on the same bar
 
 		async def _sleep(self):
 			await asyncio.sleep(max(0, stream_delay_ms)/1000.0)
@@ -158,6 +172,64 @@ async def run_backtest_task(
 		metrics['trades'] = ga('trades')
 		metrics['returns'] = ga('returns')
 		metrics['sqn'] = ga('sqn')
+
+	# Summary metrics similar to example style
+	try:
+		pv_start = float(initial_cash)
+		strategy_return_pct = ((final_value - pv_start) / pv_start) * 100.0 if pv_start else None
+		buy_hold_return_pct = None
+		buy_hold_max_dd_pct = None
+		if first_close_series is not None and len(first_close_series) > 1:
+			start_price = float(first_close_series.iloc[0])
+			end_price = float(first_close_series.iloc[-1])
+			if start_price:
+				buy_hold_return_pct = ((end_price - start_price) / start_price) * 100.0
+			rolling_max = first_close_series.expanding().max()
+			drawdowns = (first_close_series - rolling_max) / rolling_max * 100.0
+			buy_hold_max_dd_pct = float(abs(drawdowns.min()))
+
+		tr = metrics.get('trades', {}) if isinstance(metrics, dict) else {}
+		total_trades = (tr.get('total', {}) or {}).get('total')
+		won_total = (tr.get('won', {}) or {}).get('total')
+		lost_total = (tr.get('lost', {}) or {}).get('total')
+		win_rate_pct = (won_total / total_trades * 100.0) if total_trades and won_total is not None else None
+		avg_pnl_per_trade = (((tr.get('pnl', {}) or {}).get('net', {}) or {}).get('average'))
+		largest_win = (((tr.get('won', {}) or {}).get('pnl', {}) or {}).get('max'))
+		largest_loss = (((tr.get('lost', {}) or {}).get('pnl', {}) or {}).get('max'))
+		longest_dd_bars = ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('len')
+		# approximate longest drawdown in days from bars based on timeframe
+		bars_per_day = 24 if timeframe == 'H1' else (96 if timeframe == 'M15' else 1)
+		longest_dd_days = (float(longest_dd_bars) / float(bars_per_day)) if longest_dd_bars else None
+
+		# Sharpe convenience
+		sharpe_ratio = None
+		try:
+			sharpe_ratio = (metrics.get('sharpe', {}) or {}).get('sharperatio')
+		except Exception:
+			pass
+
+		metrics['summary'] = {
+			'pv_start': pv_start,
+			'pv_end': final_value,
+			'strategy_return_pct': strategy_return_pct,
+			'buy_hold_return_pct': buy_hold_return_pct,
+			'strategy_vs_buy_hold_pct': (strategy_return_pct - buy_hold_return_pct) if (strategy_return_pct is not None and buy_hold_return_pct is not None) else None,
+			'strategy_max_dd_pct': ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown'),
+			'buy_hold_max_dd_pct': buy_hold_max_dd_pct,
+			'drawdown_diff_pct': ( ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown') - buy_hold_max_dd_pct ) if (metrics.get('drawdown') and buy_hold_max_dd_pct is not None) else None,
+			'total_trades': total_trades,
+			'won_trades': won_total,
+			'lost_trades': lost_total,
+			'win_rate_pct': win_rate_pct,
+			'avg_pnl_per_trade': avg_pnl_per_trade,
+			'largest_win': largest_win,
+			'largest_loss': largest_loss,
+			'longest_drawdown_bars': longest_dd_bars,
+			'longest_drawdown_days': longest_dd_days,
+			'sharpe_ratio': sharpe_ratio,
+		}
+	except Exception:
+		pass
 	_broadcast(loop, ws_manager, run_id, {
 		'type': 'done',
 		'portfolio_value': final_value,
