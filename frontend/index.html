@@ -1,0 +1,257 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backtester</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 0; background: #0b0f14; color: #e6edf3; }
+    header { padding: 12px 16px; border-bottom: 1px solid #1f2a33; display: flex; gap: 12px; align-items: center; }
+    label { font-size: 12px; color: #8b98a5; }
+    input, select { background: #0e151b; border: 1px solid #1f2a33; color: #e6edf3; padding: 6px 8px; border-radius: 6px; }
+    button { background: #1f6feb; color: white; border: 0; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+    .cell { display: flex; flex-direction: column; gap: 6px; }
+    #chart { height: 680px; width: 100%; }
+    #log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 8px 12px; height: 180px; overflow: auto; background: #0e151b; border-top: 1px solid #1f2a33; }
+  </style>
+
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <div class="cell">
+        <label>Symbol</label>
+        <input id="symbol" value="EURUSD=X" />
+      </div>
+      <div class="cell">
+        <label>Source</label>
+        <select id="source">
+          <option value="yfinance" selected>yfinance</option>
+          <option value="mt5">MT5</option>
+        </select>
+      </div>
+      <div class="cell">
+        <label>Timeframe</label>
+        <select id="timeframe">
+          <option value="H1" selected>H1</option>
+          <option value="M15">M15</option>
+          <option value="D1">D1</option>
+        </select>
+      </div>
+      <div class="cell">
+        <label>Start</label>
+        <input id="start" type="datetime-local" value="2025-05-18T17:32" />
+      </div>
+      <div class="cell">
+        <label>End</label>
+        <input id="end" type="datetime-local" value="2025-08-16T17:32" />
+      </div>
+      <div class="cell">
+        <label>Cash</label>
+        <input id="cash" type="number" value="10000" />
+      </div>
+      <div class="cell">
+        <label>Commission (bps)</label>
+        <input id="commission" type="number" value="2" />
+      </div>
+      <div class="cell">
+        <label>Slippage (bps)</label>
+        <input id="slippage" type="number" value="0" />
+      </div>
+      <div class="cell">
+        <label>Position size %</label>
+        <input id="size_percent" type="number" value="95" />
+      </div>
+      <div class="cell">
+        <label>Stream delay (ms)</label>
+        <input id="stream_delay_ms" type="number" value="150" />
+      </div>
+      <div class="cell">
+        <label>Strategy name (file)</label>
+        <input id="strategy_name" placeholder="example" />
+      </div>
+      <div class="cell">
+        <button id="run">Run</button>
+      
+      <div class="cell" style="min-width:360px;flex:1 1 360px;max-width:100%">
+        <label>Inline Strategy (optional)</label>
+        <textarea id="strategy_code" spellcheck="false" style="width:100%;height:120px;background:#0e151b;border:1px solid #1f2a33;color:#e6edf3;border-radius:6px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">
+import backtrader as bt
+
+class InlineStrategy(bt.Strategy):
+    params = dict(fast=10, slow=20)
+    def __init__(self):
+        self.fast = bt.ind.SMA(self.data.close, period=self.p.fast)
+        self.slow = bt.ind.SMA(self.data.close, period=self.p.slow)
+    def next(self):
+        if not self.position and self.fast[0] > self.slow[0]:
+            self.buy()
+        elif self.position and self.fast[0] < self.slow[0]:
+            self.close()
+        </textarea>
+      </div>
+    </div>
+  </header>
+  <div id="chart" style="height:680px"></div>
+  <div id="metrics"></div>
+  <div id="trades" style="padding:10px;border-top:1px solid #1f2a33;background:#0e151b"></div>
+  <div id="log"></div>
+
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      el.textContent += `\n${new Date().toLocaleTimeString()} | ${msg}`;
+      el.scrollTop = el.scrollHeight;
+    };
+
+        const chartEl = document.getElementById('chart');
+    const chart = LightweightCharts.createChart(chartEl, {
+      layout: { background: { color: "#0b0f14" }, textColor: "#e6edf3" },
+      rightPriceScale: { borderColor: "#1f2a33" },
+      timeScale: { borderColor: "#1f2a33" },
+      grid: { vertLines: { color: "#11161b" }, horzLines: { color: "#11161b" } },
+      autoSize: true,
+      crosshair: { mode: 1 },
+    });
+    const candleSeries = chart.addCandlestickSeries();
+    window.addEventListener('resize', () => chart.applyOptions({ width: chartEl.clientWidth }));
+
+    function drawSeries(series) {
+      const pad = 10;
+      const names = Object.keys(series || {});
+      let allValues = [];
+      let totalCount = 0;
+      names.forEach(name => {
+        const data = series[name] || [];
+        totalCount = Math.max(totalCount, data.length);
+        data.forEach(p => {
+          if (p && p.o != null) { allValues.push(p.h, p.l); }
+          else if (p && p.close != null) { allValues.push(p.close); }
+        });
+      });
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (allValues.length === 0) return;
+      const min = Math.min(...allValues);
+      const max = Math.max(...allValues);
+      const y = (v) => canvas.height - pad - ((v - min) / Math.max(1, (max - min))) * (canvas.height - pad * 2);
+      const colors = ['#1f6feb','#2ea043','#bf5af2','#f778ba','#f0883e','#7ee787'];
+      names.forEach((name, idx) => {
+        const data = series[name] || [];
+        if (!data || data.length === 0) return;
+        ctx.strokeStyle = colors[idx % colors.length];
+        ctx.lineWidth=1.5; ctx.beginPath();
+        data.forEach((p, i) => {
+          if (p && p.o != null) { drawCandle(i, p.o, p.h, p.l, p.c, '#26a69a', '#ef5350'); }
+          else {
+            const x = pad + i * ((canvas.width - pad*2) / Math.max(1,totalCount-1));
+            const yy = y(p.close);
+            if (i === 0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+          }
+        });
+        ctx.stroke();
+      });
+      function drawCandle(i, o,h,l,c, colorUp, colorDown){
+        const x = pad + i * ((canvas.width - pad*2) / Math.max(1,totalCount-1));
+        const isUp = c>=o;
+        const color = isUp ? colorUp : colorDown;
+        ctx.strokeStyle=color; ctx.fillStyle=color;
+        const yO = y(o), yH = y(h), yL = y(l), yC = y(c);
+        ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+        const bw = Math.max(2, (canvas.width - pad*2)/Math.max(1,totalCount-1) * 0.7);
+        const top = Math.min(yO, yC), bot = Math.max(yO, yC);
+        ctx.fillRect(x - bw/2, top, bw, Math.max(1, bot-top));
+      }
+}
+    document.getElementById('run').onclick = async () => {
+      const symbol = document.getElementById('symbol').value.trim(); const symbols = [symbol];
+      const timeframe = document.getElementById('timeframe').value;
+      const source = document.getElementById('source').value;
+      const start = new Date(document.getElementById('start').value || new Date(Date.now()-1000*60*60*24*90)).toISOString();
+      const end = new Date(document.getElementById('end').value || new Date()).toISOString();
+      const cash = parseFloat(document.getElementById('cash').value || '10000');
+      const commission = (parseFloat(document.getElementById('commission').value || '2')) / 10000.0;
+      const slippage = (parseFloat(document.getElementById('slippage').value || '0')) / 10000.0;
+      const strategy_name = document.getElementById('strategy_name').value || 'example';
+      const size_percent = parseFloat(document.getElementById('size_percent').value || "95"); const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150"); const strategy_code = document.getElementById('strategy_code')?.value || null; const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, stream_delay_ms, strategy_name, strategy_code };
+      const res = await fetch('/backtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const json = await res.json();
+      if (!res.ok) { log('Error: ' + (json.error || res.statusText)); return; }
+      const runId = json.run_id; log('Run ' + runId + ' started');
+      const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?run_id=' + runId);
+      ws.onmessage = (ev) => {
+        if (!window._markers) window._markers = [];
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'status') log(msg.message);
+        if (msg.type === 'bar') {
+          // draw streaming prices as single series per symbol (append only)
+          if (!window.series) window.series = {};
+          Object.entries(msg.prices).forEach(([name, price]) => {
+            if (!window.series[name]) window.series[name] = [];
+            window.series[name].push(msg.ohlc?.[name] ? { time: msg.time, ...msg.ohlc[name] } : { time: msg.time, close: price });
+          });
+          const name = Object.keys(window.series)[0];
+          const mapPoint = (p) => {
+            const raw = p.time || "";
+            let t = Date.parse(raw);
+            if (!Number.isFinite(t)) {
+              const base = raw.split(".")[0];
+              t = Date.parse(base + "Z");
+            }
+            if (!Number.isFinite(t)) return null;
+            const open = (p.o ?? p.close);
+            const high = (p.h ?? p.close);
+            const low = (p.l ?? p.close);
+            const close = (p.c ?? p.close);
+            if ([open,high,low,close].some(v => v == null || Number.isNaN(Number(v)))) return null;
+            return { time: Math.floor(t/1000), open: Number(open), high: Number(high), low: Number(low), close: Number(close) };
+          };
+          const data = (window.series[name]||[]).map(mapPoint).filter(Boolean);
+          if (data.length) { candleSeries.setData(data); chart.timeScale().scrollToRealTime(); }
+        }
+        if (msg.type === 'done') {
+          const m = msg.metrics || {};
+          const pv = msg.portfolio_value;
+          const sharpe = (m.sharpe && (m.sharpe.sharperatio ?? m.sharpe['sharperatio'])) ?? null;
+          const dd = (m.drawdown && (m.drawdown.max?.drawdown ?? m.drawdown.drawdown)) ?? null;
+          const rtot = (m.returns && (m.returns.rtot ?? m.returns['rtot'])) ?? null;
+          const rtot100 = (m.returns && (m.returns.rtot100 ?? (rtot!=null ? rtot*100 : null))) ?? null;
+          const sqn = (m.sqn && (m.sqn.sqn ?? m.sqn['sqn'])) ?? null;
+          const trades = (m.trades && (m.trades.total?.closed ?? m.trades.total?.total)) ?? null;
+          const fmt = (x, d=2) => (x==null || isNaN(x)) ? '-' : Number(x).toFixed(d);
+          const metricsDiv = document.getElementById('metrics');
+          metricsDiv.innerHTML = `
+            <div style="padding:10px;border-top:1px solid #1f2a33;background:#0e151b">
+              <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div><b>PV</b>: ${fmt(pv,2)}</div>
+                <div><b>Total Return %</b>: ${fmt(rtot100,2)}</div>
+                <div><b>Max DD %</b>: ${fmt(dd,2)}</div>
+                <div><b>Sharpe</b>: ${fmt(sharpe,2)}</div>
+                <div><b>SQN</b>: ${fmt(sqn,2)}</div>
+                <div><b>Trades</b>: ${trades ?? '-'}</div>
+              </div>
+              <pre style="margin-top:8px;color:#8b98a5">${JSON.stringify(m, null, 2)}</pre>
+            </div>`;
+          const tradesDiv = document.getElementById('trades');
+          const rows = (msg.trades||[]).slice(-50).map(t => `<tr><td>${t.time}</td><td>${t.type}</td><td>${t.size??"-"}</td><td>${t.price??"-"}</td><td>${t.pnl??"-"}</td></tr>`).join("");
+          tradesDiv.innerHTML = `<table style="width:100%;font-size:12px;color:#c9d1d9"><thead><tr><th>Time</th><th>Type</th><th>Qty</th><th>Price</th><th>PNL</th></tr></thead><tbody>${rows}</tbody></table>`;
+          log('Done. PV=' + pv.toFixed(2));
+        }
+        if (msg.type === 'trade') {
+          const t = msg.trade;
+          const timeSec = Math.floor(new Date(t.time).getTime()/1000);
+          const position = t.type === 'buy' ? 'belowBar' : (t.type === 'sell' ? 'aboveBar' : 'inBar');
+          const color = t.type === 'buy' ? '#26a69a' : (t.type === 'sell' ? '#ef5350' : '#9e9e9e');
+          const shape = t.type === 'buy' ? 'arrowUp' : (t.type === 'sell' ? 'arrowDown' : 'circle');
+          window._markers.push({ time: timeSec, position, color, shape, text: `${t.type} ${t.size ?? ''}@${t.price ?? ''}` });
+          candleSeries.setMarkers(window._markers);
+        }
+        if (msg.type === 'chart') { const name = Object.keys(msg.series)[0]; const data = msg.series[name].map(p => ({ time: Math.floor(new Date(p.time).getTime()/1000), open: p.o ?? p.close, high: p.h ?? p.close, low: p.l ?? p.close, close: p.c ?? p.close })); candleSeries.setData(data); chart.timeScale().scrollToRealTime(); }
+      };
+      ws.onclose = () => log('WebSocket closed');
+    };
+  </script>
+</body>
+</html>
