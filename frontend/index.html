@@ -174,13 +174,22 @@ class InlineStrategy(bt.Strategy):
       const cash = parseFloat(document.getElementById('cash').value || '10000');
       const commission = (parseFloat(document.getElementById('commission').value || '2')) / 10000.0;
       const slippage = (parseFloat(document.getElementById('slippage').value || '0')) / 10000.0;
-      const strategy_name = document.getElementById('strategy_name').value || 'example';
-      const size_percent = parseFloat(document.getElementById('size_percent').value || "95"); const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150"); const strategy_code = document.getElementById('strategy_code')?.value || null; const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, stream_delay_ms, strategy_name, strategy_code };
+      const strategy_name_input = (document.getElementById('strategy_name').value || '').trim();
+      const strategy_code_input = document.getElementById('strategy_code')?.value || '';
+      // If a strategy name is provided, prefer it and do NOT send inline code
+      const strategy_name = strategy_name_input.length ? strategy_name_input : null;
+      const strategy_code = strategy_name ? null : (strategy_code_input.trim().length ? strategy_code_input : null);
+      const size_percent = parseFloat(document.getElementById('size_percent').value || "95"); const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150"); const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, stream_delay_ms, strategy_name, strategy_code };
       const res = await fetch('/backtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const json = await res.json();
       if (!res.ok) { log('Error: ' + (json.error || res.statusText)); return; }
       const runId = json.run_id; log('Run ' + runId + ' started');
       const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?run_id=' + runId);
+      // reset series and markers for a fresh run
+      window.series = {};
+      window._markers = [];
+      candleSeries.setData([]);
+      candleSeries.setMarkers([]);
       ws.onmessage = (ev) => {
         if (!window._markers) window._markers = [];
         const msg = JSON.parse(ev.data);
@@ -209,7 +218,11 @@ class InlineStrategy(bt.Strategy):
             return { time: Math.floor(t/1000), open: Number(open), high: Number(high), low: Number(low), close: Number(close) };
           };
           const data = (window.series[name]||[]).map(mapPoint).filter(Boolean);
-          if (data.length) { candleSeries.setData(data); chart.timeScale().scrollToRealTime(); }
+          if (data.length) {
+            candleSeries.setData(data);
+            candleSeries.setMarkers(window._markers || []);
+            chart.timeScale().scrollToRealTime();
+          }
         }
         if (msg.type === 'done') {
           const m = msg.metrics || {};
@@ -241,11 +254,17 @@ class InlineStrategy(bt.Strategy):
         }
         if (msg.type === 'trade') {
           const t = msg.trade;
-          const timeSec = Math.floor(new Date(t.time).getTime()/1000);
+          let ts = Date.parse(t.time || "");
+          if (!Number.isFinite(ts)) {
+            const base = (t.time || "").split(".")[0];
+            ts = Date.parse(base + "Z");
+          }
+          if (!Number.isFinite(ts)) return;
+          const timeSec = Math.floor(ts/1000);
           const position = t.type === 'buy' ? 'belowBar' : (t.type === 'sell' ? 'aboveBar' : 'inBar');
           const color = t.type === 'buy' ? '#26a69a' : (t.type === 'sell' ? '#ef5350' : '#9e9e9e');
           const shape = t.type === 'buy' ? 'arrowUp' : (t.type === 'sell' ? 'arrowDown' : 'circle');
-          window._markers.push({ time: timeSec, position, color, shape, text: `${t.type} ${t.size ?? ''}@${t.price ?? ''}` });
+          window._markers.push({ time: timeSec, position, color, shape, text: `${t.type}` });
           candleSeries.setMarkers(window._markers);
         }
         if (msg.type === 'chart') { const name = Object.keys(msg.series)[0]; const data = msg.series[name].map(p => ({ time: Math.floor(new Date(p.time).getTime()/1000), open: p.o ?? p.close, high: p.h ?? p.close, low: p.l ?? p.close, close: p.c ?? p.close })); candleSeries.setData(data); chart.timeScale().scrollToRealTime(); }
