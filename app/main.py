@@ -39,13 +39,20 @@ class BacktestRequest(BaseModel):
     symbol: Optional[str] = None
     symbols: Optional[List[str]] = None
     timeframe: str = Field("H1", description="Timeframe code, e.g. H1, M15, D1")
-    source: Literal["yfinance", "mt5", "oanda"] = Field("yfinance")
+    source: Literal["yfinance", "mt5"] = Field("yfinance")
     start: Optional[datetime] = None
     end: Optional[datetime] = None
     cash: float = 10000.0
     commission: float = Field(0.0002, description="Commission as fraction (e.g., 0.0002 = 2 bps)")
     slippage: float = Field(0.0, description="Slippage as fraction of price per fill (optional)")
     size_percent: float = Field(95.0, description="Position size as % of cash per trade")
+    sizing_mode: Literal["percent", "lots", "risk"] = Field("percent")
+    lots_per_trade: Optional[float] = Field(1.0, description="Lots per trade when sizing_mode=lots")
+    include_buy_hold: bool = Field(False, description="Include Buy & Hold benchmark metrics in the response")
+    risk_percent: float = Field(0.01, description="Risk per trade as a fraction of cash when sizing_mode=risk")
+    stop_loss_pips: int = Field(50, description="Assumed stop distance in pips for risk sizing")
+    lot_multiplier: float = Field(1.0, description="Units per lot (100000 typical for FX, 1 for stocks)")
+    leverage: float = Field(1.0, description="Account leverage multiplier for affordability and commission")
     stream_delay_ms: int = Field(150, description="Delay between bars in milliseconds")
     strategy_name: Optional[str] = Field(None, description="Optional name of strategy in strategies folder")
     strategy_code: Optional[str] = Field(None, description="Optional Python code defining a bt.Strategy subclass")
@@ -100,6 +107,13 @@ async def start_backtest(req: BacktestRequest) -> JSONResponse:
             commission=req.commission,
             slippage=req.slippage,
             size_percent=req.size_percent,
+            sizing_mode=req.sizing_mode,
+            lots_per_trade=req.lots_per_trade or 1.0,
+            include_buy_hold=req.include_buy_hold,
+            risk_percent=req.risk_percent,
+            stop_loss_pips=req.stop_loss_pips,
+            lot_multiplier=req.lot_multiplier,
+            leverage=req.leverage,
             stream_delay_ms=req.stream_delay_ms,
             strategy_cls=strategy_cls,
         )

@@ -27,6 +27,50 @@ YF_TIMEFRAME_MAP = {
 }
 
 
+def _normalize_symbol_for_yfinance(symbol: str) -> str:
+	"""Map common FX/crypto formats to Yahoo tickers.
+
+	Examples:
+	- "EUR/USD", "EUR_USD", "eurusd" -> "EURUSD=X" (FX)
+	- "BTCUSD", "BTC/USD", "btc-usd" -> "BTC-USD" (Crypto)
+	- Already Yahoo-specific ("^GSPC", "EURUSD=X"): returned as-is
+	"""
+	if not symbol:
+		return symbol
+	s = symbol.strip()
+	if not s:
+		return s
+	# Preserve Yahoo-native forms
+	if s.startswith('^') or s.endswith('=X'):
+		return s
+	upper = s.upper().replace(' ', '')
+	# If already hyphenated crypto like BTC-USD, keep
+	if '-' in upper and len(upper.split('-')) == 2:
+		return upper
+	# Remove separators to analyze base/quote
+	merged = upper.replace('/', '').replace('_', '').replace('-', '')
+	# Known crypto bases to disambiguate from FX
+	crypto_bases = {
+		"BTC","ETH","SOL","XRP","ADA","DOGE","LTC","BCH","BNB","AVAX","DOT",
+		"SHIB","MATIC","LINK","TRX","XLM","XMR","ETC","UNI","ATOM","FIL","NEAR"
+	}
+	if len(merged) == 6 and merged.isalpha():
+		base, quote = merged[:3], merged[3:]
+		if base in crypto_bases or quote in {"USDT", "BTC", "ETH"}:
+			# Crypto pair -> BASE-QUOTE
+			return f"{base}-{quote}"
+		# Default treat as FX -> BASEQUOTE=X
+		return f"{base}{quote}=X"
+	# If looks like crypto with 3-4 letter quote
+	for sep in ('/', '_'):
+		if sep in upper:
+			parts = [p for p in upper.split(sep) if p]
+			if len(parts) == 2 and 2 <= len(parts[1]) <= 5:
+				return f"{parts[0]}-{parts[1]}"
+	# Fallback: return normalized upper-case ticker (stocks, indices without caret already)
+	return upper
+
+
 def _ensure_naive_utc_index(df: pd.DataFrame) -> pd.DataFrame:
 	if df.index.tz is not None:
 		df = df.tz_convert("UTC").tz_localize(None)
@@ -44,8 +88,11 @@ def load_yfinance(symbol: str, timeframe: str, start: datetime, end: datetime) -
 		if end and start and (end - start).days > max_days:
 			start = end - timedelta(days=max_days)
 
+	# Normalize provided symbol to a Yahoo-compatible ticker (supports FX/Crypto/Stocks)
+	yf_symbol = _normalize_symbol_for_yfinance(symbol)
+
 	df = yf.download(
-		tickers=symbol,
+		tickers=yf_symbol,
 		start=start,
 		end=end,
 		interval=interval,
@@ -60,8 +107,8 @@ def load_yfinance(symbol: str, timeframe: str, start: datetime, end: datetime) -
 
 	# yfinance returns multi-index columns for multiple tickers; ensure flat OHLCV
 	if isinstance(df.columns, pd.MultiIndex):
-		# Take the first level for the symbol
-		df = df.xs(symbol, axis=1, level=1)
+		# Take the first level for the normalized symbol
+		df = df.xs(yf_symbol, axis=1, level=1)
 
 	df = df.rename(columns={
 		"Open": "open",

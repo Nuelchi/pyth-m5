@@ -23,13 +23,68 @@ class PandasData(bt.feeds.PandasData):
 	)
 
 
+class FlexibleSizer(bt.Sizer):
+	"""Unified sizer supporting percent, lots, and risk-based sizing.
+
+	Params:
+	- mode: one of {"percent", "lots", "risk"}
+	- percent: position size as percent of available cash
+	- lots: number of lots per trade
+	- risk: fraction of cash to risk per trade (e.g. 0.01 = 1%)
+	- stop_loss_pips: assumed stop distance in pips for risk sizing
+	- lot_multiplier: units per lot (100000 typical for FX)
+	"""
+	params = dict(
+		mode="percent",
+		percent=90.0,
+		lots=1.0,
+		risk=0.01,
+		stop_loss_pips=50,
+		lot_multiplier=100000.0,
+		leverage=1.0,
+	)
+
+	def _getsizing(self, comminfo, cash, data, isbuy):
+		price = float(data.close[0]) if len(data) else 0.0
+		mode = str(self.p.mode or "percent").lower()
+		if mode == "percent":
+			if price <= 0.0:
+				return 0
+			units = (float(cash) * (float(self.p.percent) / 100.0)) / price
+			return max(0, int(units))
+		elif mode == "lots":
+			units = float(self.p.lots) * float(self.p.lot_multiplier)
+			# Clamp to affordable amount considering leverage to avoid silent order rejections
+			if price > 0.0 and cash > 0.0:
+				lev = float(getattr(self.p, 'leverage', 1.0) or 1.0)
+				affordable = int((float(cash) * max(1.0, lev)) / float(price))
+				if affordable <= 0:
+					units = 0
+				else:
+					units = min(int(units), affordable)
+			return max(0, int(units))
+		elif mode == "risk":
+			# Attempt to use broker's pip value if available; otherwise approximate
+			pip_value = None
+			try:
+				pip_value = comminfo.pipvalue()
+			except Exception:
+				pip_value = None
+			if not pip_value or pip_value <= 0:
+				# Approximate using lot multiplier and a default pip size of 0.0001
+				pip_value = 0.0001 * float(self.p.lot_multiplier)
+			risk_amount = float(cash) * float(self.p.risk)
+			per_unit_loss = max(1e-12, float(self.p.stop_loss_pips) * float(pip_value))
+			units = risk_amount / per_unit_loss
+			return max(0, int(units))
+		return 0
+
+
 def _load_df(symbol: str, source: str, timeframe: str, start: datetime, end: datetime) -> pd.DataFrame:
 	if source == "yfinance":
 		return load_yfinance(symbol, timeframe, start, end)
 	if source == "mt5":
 		return load_mt5(symbol, timeframe, start, end)
-	if source == "oanda":
-		return load_oanda(symbol, timeframe, start, end)
 	raise ValueError(f"Unsupported data source: {source}")
 
 
@@ -50,21 +105,36 @@ async def run_backtest_task(
 	commission: float,
 	slippage: float,
 	size_percent: float,
+	sizing_mode: str,
+	lots_per_trade: float,
+	include_buy_hold: bool,
+	risk_percent: float,
+	stop_loss_pips: int,
+	lot_multiplier: float,
+	leverage: float,
 	stream_delay_ms: int,
 	strategy_cls: Type[bt.Strategy],
 ) -> None:
 	cerebro = bt.Cerebro()
 	cerebro.broker.setcash(initial_cash)
-	cerebro.broker.setcommission(commission=commission)
+	cerebro.broker.setcommission(commission=commission, leverage=leverage)
+	# Allow cheat-on-close so end-of-bar closes (e.g., last bar) can execute
+	cerebro.broker.set_coc(True)
 	# Apply percent slippage approximation
 	if slippage and slippage > 0:
 		cerebro.broker.set_slippage_perc(slippage)
 
-	# Use a percent-of-cash sizer so position sizes meaningfully affect PnL
-	try:
-		cerebro.addsizer(bt.sizers.PercentSizer, percents=int(size_percent))
-	except Exception:
-		pass
+	# Unified sizing across modes using FlexibleSizer
+	cerebro.addsizer(
+		FlexibleSizer,
+		mode=str(sizing_mode or "percent").lower(),
+		percent=float(size_percent),
+		lots=float(lots_per_trade),
+		risk=float(risk_percent),
+		stop_loss_pips=int(stop_loss_pips),
+		lot_multiplier=float(lot_multiplier),
+		leverage=float(leverage),
+	)
 
 	# Load data
 	first_close_series = None
@@ -77,7 +147,8 @@ async def run_backtest_task(
 
 	# Analyzers
 	cerebro.addanalyzer(bt.analyzers.DrawDown, _name='dd')
-	cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
+	# Use annualized Sharpe which is more stable across bar timeframes
+	cerebro.addanalyzer(bt.analyzers.SharpeRatio_A, _name='sharpe')
 	cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
 	cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
 	cerebro.addanalyzer(bt.analyzers.SQN, _name='sqn')
@@ -92,6 +163,8 @@ async def run_backtest_task(
 		def __init__(self):
 			super().__init__()
 			self._trade_log = trade_log
+			# Prepare helpers for risk-based sizing
+			self._atr = None
 
 		def notify_order(self, order):
 			if order.status == order.Completed:
@@ -109,6 +182,32 @@ async def run_backtest_task(
 				}
 				self._trade_log.append(entry)
 				_broadcast(outer_loop, outer_ws_manager, outer_run_id, { 'type': 'trade', 'trade': entry })
+			else:
+				# Broadcast order lifecycle events to help debug rejections/margin
+				dt = bt.num2date(self.datas[0].datetime[0])
+				status_map = {
+					order.Submitted: 'Submitted',
+					order.Accepted: 'Accepted',
+					order.Partial: 'Partial',
+					order.Rejected: 'Rejected',
+					order.Canceled: 'Canceled',
+					order.Expired: 'Expired',
+					order.Margin: 'Margin',
+				}
+				status_str = status_map.get(order.status, str(order.status))
+				try:
+					px = float(getattr(order.executed, 'price', 0.0) or 0.0)
+					sz = float(getattr(order.executed, 'size', 0.0) or 0.0)
+				except Exception:
+					px, sz = 0.0, 0.0
+				_broadcast(outer_loop, outer_ws_manager, outer_run_id, {
+					'type': 'order',
+					'time': dt.isoformat(),
+					'status': status_str,
+					'side': ('buy' if order.isbuy() else 'sell'),
+					'price': px,
+					'size': sz,
+				})
 
 		def notify_trade(self, trade):
 			if trade.isclosed:
@@ -127,12 +226,17 @@ async def run_backtest_task(
 					})
 				# Do not broadcast here to avoid duplicate close markers on the same bar
 
-		async def _sleep(self):
-			await asyncio.sleep(max(0, stream_delay_ms)/1000.0)
-
 		def next(self):
 			# User logic
-			super().next()
+			try:
+				super().next()
+			except Exception as exc:  # noqa: BLE001
+				# Broadcast the error before letting it bubble to stop the run
+				_broadcast(outer_loop, outer_ws_manager, outer_run_id, {
+					'type': 'error',
+					'message': f'Strategy error: {exc}',
+				})
+				raise
 			# Publish current bar for first data (single-asset)
 			bar_time = bt.num2date(self.datas[0].datetime[0])
 			name = self.datas[0]._name or 'data'
@@ -147,10 +251,8 @@ async def run_backtest_task(
 				'ohlc': {name: {'o': o, 'h': h, 'l': l, 'c': c}},
 				'portfolio_value': float(self.broker.getvalue()),
 			})
-			# throttle between bars for visualization
+			# Blocking sleep to maintain consistent pacing for frontend rendering
 			time.sleep(max(0, stream_delay_ms)/1000.0)
-			# throttle
-			asyncio.run_coroutine_threadsafe(asyncio.sleep(max(0, stream_delay_ms)/1000.0), outer_loop)
 
 	# Add strategy
 	cerebro.addstrategy(StrategyWrapper)
@@ -214,11 +316,11 @@ async def run_backtest_task(
 			'pv_start': pv_start,
 			'pv_end': final_value,
 			'strategy_return_pct': strategy_return_pct,
-			'buy_hold_return_pct': buy_hold_return_pct,
-			'strategy_vs_buy_hold_pct': (strategy_return_pct - buy_hold_return_pct) if (strategy_return_pct is not None and buy_hold_return_pct is not None) else None,
+			'buy_hold_return_pct': (buy_hold_return_pct if include_buy_hold else None),
+			'strategy_vs_buy_hold_pct': ((strategy_return_pct - buy_hold_return_pct) if (include_buy_hold and strategy_return_pct is not None and buy_hold_return_pct is not None) else None),
 			'strategy_max_dd_pct': ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown'),
-			'buy_hold_max_dd_pct': buy_hold_max_dd_pct,
-			'drawdown_diff_pct': ( ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown') - buy_hold_max_dd_pct ) if (metrics.get('drawdown') and buy_hold_max_dd_pct is not None) else None,
+			'buy_hold_max_dd_pct': (buy_hold_max_dd_pct if include_buy_hold else None),
+			'drawdown_diff_pct': ( (((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown') - buy_hold_max_dd_pct) if (include_buy_hold and metrics.get('drawdown') and buy_hold_max_dd_pct is not None) else None ),
 			'total_trades': total_trades,
 			'won_trades': won_total,
 			'lost_trades': lost_total,

@@ -43,7 +43,6 @@
         <select id="source">
           <option value="yfinance" selected>yfinance</option>
           <option value="mt5">MT5</option>
-          <option value="oanda">Oanda</option>
         </select>
       </div>
       <div class="cell">
@@ -88,6 +87,14 @@
       <div class="cell">
         <label>Lots/trade</label>
         <input id="lots_per_trade" type="number" step="0.01" value="1" />
+      </div>
+      <div class="cell">
+        <label>Lot multiplier</label>
+        <input id="lot_multiplier" type="number" step="1" value="1" />
+      </div>
+      <div class="cell">
+        <label>Leverage</label>
+        <input id="leverage" type="number" step="1" value="1" />
       </div>
       <div class="cell">
         <label>Stream delay (ms)</label>
@@ -212,6 +219,9 @@ class InlineStrategy(bt.Strategy):
       symbolSel.value = list[0] || 'Custom...';
       symbolInput.disabled = symbolSel.value !== 'Custom...';
       if (symbolSel.value !== 'Custom...') symbolInput.value = symbolSel.value;
+      // set sensible default lot multiplier by market
+      const lotMulEl = document.getElementById('lot_multiplier');
+      lotMulEl.value = market === 'forex' ? 100000 : 1;
     }
     symbolSel.addEventListener('change', () => {
       symbolInput.disabled = symbolSel.value !== 'Custom...';
@@ -239,13 +249,12 @@ class InlineStrategy(bt.Strategy):
       const size_percent = parseFloat(document.getElementById('size_percent').value || "95");
       const sizing_mode = document.getElementById('sizing_mode').value;
       const lots_per_trade = parseFloat(document.getElementById('lots_per_trade').value || "1");
+      const lot_multiplier = parseFloat(document.getElementById('lot_multiplier').value || "1");
+      const leverage = parseFloat(document.getElementById('leverage').value || "1");
       const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150");
-      const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, sizing_mode, lots_per_trade, stream_delay_ms, strategy_name, strategy_code };
+      const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, sizing_mode, lots_per_trade, lot_multiplier, leverage, stream_delay_ms, strategy_name, strategy_code };
       // normalize symbol by source/market for convenience
-      if (source === 'oanda') {
-        // Oanda wants EUR_USD style
-        if (market === 'forex' && symbol.includes('/')) body.symbols = [symbol.replace('/', '_')];
-      } else if (source === 'yfinance') {
+      if (source === 'yfinance') {
         // yfinance: stocks like AAPL, FX like EURUSD=X, crypto like BTC-USD
         if (market === 'forex' && !symbol.endsWith('=X')) body.symbols = [symbol.replace('/', '') + '=X'];
         if (market === 'crypto' && symbol.includes('/')) body.symbols = [symbol.replace('/', '-')];
@@ -318,7 +327,7 @@ class InlineStrategy(bt.Strategy):
           const rtot100 = (m.returns && (m.returns.rtot100 ?? (rtot!=null ? rtot*100 : null))) ?? null;
           const sqn = (m.sqn && (m.sqn.sqn ?? m.sqn['sqn'])) ?? null;
           const trades = (m.trades && (m.trades.total?.closed ?? m.trades.total?.total)) ?? null;
-          const fmt = (x, d=2) => (x==null || isNaN(x)) ? '-' : Number(x).toFixed(d);
+          const fmt = (x, d=4) => (x==null || isNaN(x)) ? '-' : Number(x).toFixed(d);
           const cur = (x) => (x==null || isNaN(x)) ? '-' : ('$' + Number(x).toFixed(2));
           const metricsDiv = document.getElementById('metrics');
           const s = (m && m.summary) || {};
