@@ -10,6 +10,7 @@
     label { font-size: 12px; color: #8b98a5; }
     input, select { background: #0e151b; border: 1px solid #1f2a33; color: #e6edf3; padding: 6px 8px; border-radius: 6px; }
     button { background: #1f6feb; color: white; border: 0; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    #fast { background: #2ea043; color: #0b0f14; }
     button:disabled { opacity: .6; cursor: not-allowed; }
     .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
     .cell { display: flex; flex-direction: column; gap: 6px; }
@@ -61,44 +62,10 @@
         <label>End</label>
         <input id="end" type="datetime-local" value="2025-08-16T17:32" />
       </div>
+      <!-- Advanced controls removed; server hard-codes cash, commission, sizing, and pacing -->
       <div class="cell">
-        <label>Cash</label>
-        <input id="cash" type="number" value="10000" />
-      </div>
-      <div class="cell">
-        <label>Commission (bps)</label>
-        <input id="commission" type="number" value="2" />
-      </div>
-      <div class="cell">
-        <label>Slippage (bps)</label>
-        <input id="slippage" type="number" value="0" />
-      </div>
-      <div class="cell">
-        <label>Position size %</label>
-        <input id="size_percent" type="number" value="95" />
-      </div>
-      <div class="cell">
-        <label>Sizing mode</label>
-        <select id="sizing_mode">
-          <option value="percent" selected>Percent of cash</option>
-          <option value="lots">Lots</option>
-        </select>
-      </div>
-      <div class="cell">
-        <label>Lots/trade</label>
-        <input id="lots_per_trade" type="number" step="0.01" value="1" />
-      </div>
-      <div class="cell">
-        <label>Lot multiplier</label>
-        <input id="lot_multiplier" type="number" step="1" value="1" />
-      </div>
-      <div class="cell">
-        <label>Leverage</label>
-        <input id="leverage" type="number" step="1" value="1" />
-      </div>
-      <div class="cell">
-        <label>Stream delay (ms)</label>
-        <input id="stream_delay_ms" type="number" value="150" />
+        <label>&nbsp;</label>
+        <button id="fast">Fast: Off</button>
       </div>
       <div class="cell">
         <label>Strategy name (file)</label>
@@ -106,6 +73,7 @@
       </div>
       <div class="cell">
         <button id="run">Run</button>
+      </div>
       
       <div class="cell" style="min-width:360px;flex:1 1 360px;max-width:100%">
         <label>Inline Strategy (optional)</label>
@@ -219,9 +187,7 @@ class InlineStrategy(bt.Strategy):
       symbolSel.value = list[0] || 'Custom...';
       symbolInput.disabled = symbolSel.value !== 'Custom...';
       if (symbolSel.value !== 'Custom...') symbolInput.value = symbolSel.value;
-      // set sensible default lot multiplier by market
-      const lotMulEl = document.getElementById('lot_multiplier');
-      lotMulEl.value = market === 'forex' ? 100000 : 1;
+      // lot multiplier control removed; nothing to set
     }
     symbolSel.addEventListener('change', () => {
       symbolInput.disabled = symbolSel.value !== 'Custom...';
@@ -231,6 +197,13 @@ class InlineStrategy(bt.Strategy):
     sourceEl.addEventListener('change', populateSymbols);
     populateSymbols();
 
+    let fastFlag = false;
+    document.getElementById('fast').onclick = (e) => {
+      e.preventDefault();
+      fastFlag = !fastFlag;
+      document.getElementById('fast').textContent = fastFlag ? 'Fast: On' : 'Fast: Off';
+    };
+
     document.getElementById('run').onclick = async () => {
       const market = document.getElementById('market').value;
       const symbol = document.getElementById('symbol').value.trim(); const symbols = [symbol];
@@ -238,21 +211,14 @@ class InlineStrategy(bt.Strategy):
       const source = document.getElementById('source').value;
       const start = new Date(document.getElementById('start').value || new Date(Date.now()-1000*60*60*24*90)).toISOString();
       const end = new Date(document.getElementById('end').value || new Date()).toISOString();
-      const cash = parseFloat(document.getElementById('cash').value || '10000');
-      const commission = (parseFloat(document.getElementById('commission').value || '2')) / 10000.0;
-      const slippage = (parseFloat(document.getElementById('slippage').value || '0')) / 10000.0;
+      const cash = undefined; const commission = undefined; const slippage = undefined;
       const strategy_name_input = (document.getElementById('strategy_name').value || '').trim();
       const strategy_code_input = document.getElementById('strategy_code')?.value || '';
       // If a strategy name is provided, prefer it and do NOT send inline code
       const strategy_name = strategy_name_input.length ? strategy_name_input : null;
       const strategy_code = strategy_name ? null : (strategy_code_input.trim().length ? strategy_code_input : null);
-      const size_percent = parseFloat(document.getElementById('size_percent').value || "95");
-      const sizing_mode = document.getElementById('sizing_mode').value;
-      const lots_per_trade = parseFloat(document.getElementById('lots_per_trade').value || "1");
-      const lot_multiplier = parseFloat(document.getElementById('lot_multiplier').value || "1");
-      const leverage = parseFloat(document.getElementById('leverage').value || "1");
-      const stream_delay_ms = parseInt(document.getElementById('stream_delay_ms').value || "150");
-      const body = { symbols, timeframe, source, start, end, cash, commission, slippage, size_percent, sizing_mode, lots_per_trade, lot_multiplier, leverage, stream_delay_ms, strategy_name, strategy_code };
+      const size_percent = undefined; const sizing_mode = undefined; const lots_per_trade = undefined; const lot_multiplier = undefined; const leverage = undefined;
+      const body = { symbols, timeframe, source, start, end, fast: fastFlag, strategy_name, strategy_code };
       // normalize symbol by source/market for convenience
       if (source === 'yfinance') {
         // yfinance: stocks like AAPL, FX like EURUSD=X, crypto like BTC-USD

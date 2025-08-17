@@ -92,6 +92,24 @@ def _broadcast(loop: asyncio.AbstractEventLoop, ws_manager: WebSocketManager, ru
 	asyncio.run_coroutine_threadsafe(ws_manager.broadcast(run_id, message), loop)
 
 
+def _sanitize_json_numbers(obj: Any) -> Any:
+	"""Recursively make NaN/Infinity JSON-safe: convert to 'nan'/'inf' strings so UI can display them."""
+	try:
+		import math  # local import to avoid top clutter
+	except Exception:
+		math = None  # type: ignore
+	if isinstance(obj, dict):
+		return {k: _sanitize_json_numbers(v) for k, v in obj.items()}
+	if isinstance(obj, list):
+		return [_sanitize_json_numbers(v) for v in obj]
+	if isinstance(obj, float) and math is not None:
+		if math.isnan(obj):
+			return 'nan'
+		if math.isinf(obj):
+			return 'inf'
+	return obj
+
+
 async def run_backtest_task(
 	run_id: str,
 	loop: asyncio.AbstractEventLoop,
@@ -117,24 +135,16 @@ async def run_backtest_task(
 ) -> None:
 	cerebro = bt.Cerebro()
 	cerebro.broker.setcash(initial_cash)
-	cerebro.broker.setcommission(commission=commission, leverage=leverage)
-	# Allow cheat-on-close so end-of-bar closes (e.g., last bar) can execute
-	cerebro.broker.set_coc(True)
+	cerebro.broker.setcommission(commission=commission)
 	# Apply percent slippage approximation
 	if slippage and slippage > 0:
 		cerebro.broker.set_slippage_perc(slippage)
 
-	# Unified sizing across modes using FlexibleSizer
-	cerebro.addsizer(
-		FlexibleSizer,
-		mode=str(sizing_mode or "percent").lower(),
-		percent=float(size_percent),
-		lots=float(lots_per_trade),
-		risk=float(risk_percent),
-		stop_loss_pips=int(stop_loss_pips),
-		lot_multiplier=float(lot_multiplier),
-		leverage=float(leverage),
-	)
+	# BCT-like sizer: fixed percent of cash per trade
+	try:
+		cerebro.addsizer(bt.sizers.PercentSizer, percents=int(size_percent))
+	except Exception:
+		pass
 
 	# Load data
 	first_close_series = None
@@ -147,8 +157,7 @@ async def run_backtest_task(
 
 	# Analyzers
 	cerebro.addanalyzer(bt.analyzers.DrawDown, _name='dd')
-	# Use annualized Sharpe which is more stable across bar timeframes
-	cerebro.addanalyzer(bt.analyzers.SharpeRatio_A, _name='sharpe')
+	cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
 	cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
 	cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
 	cerebro.addanalyzer(bt.analyzers.SQN, _name='sqn')
@@ -334,9 +343,12 @@ async def run_backtest_task(
 		}
 	except Exception:
 		pass
+	# Sanitize payload before sending to the browser to avoid JSON.parse errors
+	safe_metrics = _sanitize_json_numbers(metrics)
+	safe_trades = _sanitize_json_numbers(trade_log)
 	_broadcast(loop, ws_manager, run_id, {
 		'type': 'done',
 		'portfolio_value': final_value,
-		'metrics': metrics,
-		'trades': trade_log,
+		'metrics': safe_metrics,
+		'trades': safe_trades,
 	})

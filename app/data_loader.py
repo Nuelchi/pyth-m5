@@ -96,7 +96,7 @@ def load_yfinance(symbol: str, timeframe: str, start: datetime, end: datetime) -
 		start=start,
 		end=end,
 		interval=interval,
-		auto_adjust=False,
+		auto_adjust=True,
 		progress=False,
 		prepost=False,
 		threads=True,
