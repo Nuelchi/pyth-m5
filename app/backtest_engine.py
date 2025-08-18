@@ -345,6 +345,14 @@ async def run_backtest_task(
 	try:
 		pv_start = float(initial_cash)
 		strategy_return_pct = ((final_value - pv_start) / pv_start) * 100.0 if pv_start else None
+		# Compute annualized return (CAGR) based on backtest period
+		annual_return_pct = None
+		try:
+			period_days = max(1.0, float((end - start).total_seconds()) / 86400.0)
+			if pv_start and period_days > 0:
+				annual_return_pct = ((final_value / pv_start) ** (365.0 / period_days) - 1.0) * 100.0
+		except Exception:
+			annual_return_pct = None
 		buy_hold_return_pct = None
 		buy_hold_max_dd_pct = None
 		if first_close_series is not None and len(first_close_series) > 1:
@@ -380,6 +388,7 @@ async def run_backtest_task(
 			'pv_start': pv_start,
 			'pv_end': final_value,
 			'strategy_return_pct': strategy_return_pct,
+			'annual_return_pct': annual_return_pct,
 			'buy_hold_return_pct': (buy_hold_return_pct if include_buy_hold else None),
 			'strategy_vs_buy_hold_pct': ((strategy_return_pct - buy_hold_return_pct) if (include_buy_hold and strategy_return_pct is not None and buy_hold_return_pct is not None) else None),
 			'strategy_max_dd_pct': ((metrics.get('drawdown', {}) or {}).get('max', {}) or {}).get('drawdown'),
