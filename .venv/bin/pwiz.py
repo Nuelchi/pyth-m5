@@ -1,4 +1,4 @@
-#!/Users/mrdoxa/Desktop/pyth m5/.venv/bin/python3.12
+#!/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/bin/python
 
 import datetime
 import os

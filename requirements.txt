@@ -7,3 +7,4 @@ MetaTrader5>=5.0.45; platform_system == 'Windows'
 yfinance>=0.2.43
 python-multipart>=0.0.9
 requests>=2.31.0
+PyYAML>=6.0.2

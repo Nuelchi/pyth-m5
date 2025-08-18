@@ -1,47 +1,211 @@
-INFO:     Will watch for changes in these directories: ['/Users/mrdoxa/Desktop/Trainflow-next/backtrader.BE']
+INFO:     Started server process [66990]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [36203] using WatchFiles
-INFO:     Started server process [36208]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'app/backtest_engine.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [36208]
-INFO:     Started server process [36281]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:63287 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 63289) - "WebSocket /ws?run_id=17e2eae2d9cf4791a3d3b523fcb0bf70" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:64939 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 64941) - "WebSocket /ws?run_id=69c6bed6dcf84ac09a0fbed921d0daca" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:64977 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 64979) - "WebSocket /ws?run_id=27fdae530d9f408ea62f97f9eea3967b" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:50632 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 50634) - "WebSocket /ws?run_id=6ac4c74e0b3145e48a2291400a8ca3c8" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:50632 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 50660) - "WebSocket /ws?run_id=380798ec4ab84dbab0aa0f4a5310e22f" [accepted]
+INFO:     127.0.0.1:51574 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51657 - "POST /spec/backtest HTTP/1.1" 200 OK
+
+1 Failed download:
+['EURUSD=X']: YFPricesMissingError('possibly delisted; no price data found  (15m 2025-02-19 11:40:14.899489 -> 2025-08-18 11:40:14.899489) (Yahoo error = "15m data not available for startTime=1739965214 and endTime=1755513614. The requested range must be within the last 60 days.")')
+Task exception was never retrieved
+future: <Task finished name='Task-5' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=ValueError('No data returned from yfinance for EURUSD')>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 152, in run_backtest_task
+    df = await loop.run_in_executor(None, _load_df, symbol, source, timeframe, start, end)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 85, in _load_df
+    return load_yfinance(symbol, timeframe, start, end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/data_loader.py", line 106, in load_yfinance
+    raise ValueError(f"No data returned from yfinance for {symbol}")
+ValueError: No data returned from yfinance for EURUSD
+INFO:     127.0.0.1:52288 - "OPTIONS /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 52290) - "WebSocket /ws?run_id=cbb85294c9264ed9add298b5c3c53ad1" [accepted]
 INFO:     connection open
 INFO:     connection closed
+INFO:     127.0.0.1:55317 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55572 - "OPTIONS /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55572 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55572 - "POST /backtest HTTP/1.1" 200 OK
+Task exception was never retrieved
+future: <Task finished name='Task-3465' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'ticksize'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 309, in _oncepost
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 39, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'ticksize'
+Task exception was never retrieved
+future: <Task finished name='Task-3467' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'ticksize'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 309, in _oncepost
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 39, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'ticksize'
+INFO:     127.0.0.1:55701 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55701 - "POST /backtest HTTP/1.1" 200 OK
+Task exception was never retrieved
+future: <Task finished name='Task-3527' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'point'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 309, in _oncepost
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 33, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'point'
+Task exception was never retrieved
+future: <Task finished name='Task-3525' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'point'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 309, in _oncepost
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 33, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_AbstractDataBase_DataBase_PandasData_PandasData' object has no attribute 'point'
+INFO:     127.0.0.1:57299 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57299 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 57301) - "WebSocket /ws?run_id=522362b8c3cf4cb6bcab333e13142d47" [accepted]
+INFO:     connection open
+Task exception was never retrieved
+future: <Task finished name='Task-3587' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_LineIterator_DataAccessor_StrategyBase_Strategy_MovingAverageCrossover_StrategyWrap' object has no attribute 'order'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 311, in _oncepost
+    self.nextstart()  # only called for the 1st value
+    ^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineiterator.py", line 347, in nextstart
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 28, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_LineIterator_DataAccessor_StrategyBase_Strategy_MovingAverageCrossover_StrategyWrap' object has no attribute 'order'
+Task exception was never retrieved
+future: <Task finished name='Task-3585' coro=<run_backtest_task() done, defined at /Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py:113> exception=AttributeError("'Lines_LineSeries_LineIterator_DataAccessor_StrategyBase_Strategy_MovingAverageCrossover_StrategyWrap' object has no attribute 'order'")>
+Traceback (most recent call last):
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 327, in run_backtest_task
+    results = await loop.run_in_executor(None, cerebro.run)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1132, in run
+    runstrat = self.runstrategies(iterstrat)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1298, in runstrategies
+    self._runonce(runstrats)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/cerebro.py", line 1700, in _runonce
+    strat._oncepost(dt0)
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/strategy.py", line 311, in _oncepost
+    self.nextstart()  # only called for the 1st value
+    ^^^^^^^^^^^^^^^^
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineiterator.py", line 347, in nextstart
+    self.next()
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/app/backtest_engine.py", line 296, in next
+    super().next()
+  File "<string>", line 28, in next
+  File "/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/lib/python3.12/site-packages/backtrader/lineseries.py", line 461, in __getattr__
+    return getattr(self.lines, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Lines_LineSeries_LineIterator_DataAccessor_StrategyBase_Strategy_MovingAverageCrossover_StrategyWrap' object has no attribute 'order'
 INFO:     connection closed
-INFO:     connection closed
-INFO:     127.0.0.1:53756 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53966 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 53968) - "WebSocket /ws?run_id=66f6dfad2429413d932c329e006ff3ed" [accepted]
+INFO:     127.0.0.1:57553 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57553 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57831 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 57833) - "WebSocket /ws?run_id=9c1d759810684dffa86726faafa5e263" [accepted]
 INFO:     connection open
 INFO:     connection closed
-INFO:     127.0.0.1:54609 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 54612) - "WebSocket /ws?run_id=42e8dbec35d4468e954bdfbb181e21f5" [accepted]
+INFO:     127.0.0.1:59388 - "OPTIONS /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59388 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 59391) - "WebSocket /ws?run_id=7d23984de58f43e59f50aac503782c73" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 59393) - "WebSocket /ws?run_id=7d23984de58f43e59f50aac503782c73" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 60717) - "WebSocket /ws?run_id=7d23984de58f43e59f50aac503782c73" [accepted]
 INFO:     connection open
 INFO:     connection closed
-INFO:     127.0.0.1:61684 - "OPTIONS /backtest HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61684 - "POST /backtest HTTP/1.1" 200 OK
-INFO:     ('127.0.0.1', 61686) - "WebSocket /ws?run_id=844e5bd80fcd4f59a43c2841d0590db3" [accepted]
-INFO:     connection open

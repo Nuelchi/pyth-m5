@@ -15,6 +15,7 @@ from pathlib import Path
 from .ws_manager import WebSocketManager
 from .strategy_loader import load_strategy
 from .backtest_engine import run_backtest_task
+from .spec_runner import parse_spec, compile_strategy
 
 
 app = FastAPI(title="Backtest Service", version="0.1.0")
@@ -134,3 +135,63 @@ async def websocket_endpoint(websocket: WebSocket, run_id: str = Query(...)) -> 
             await websocket.receive_text()
     except WebSocketDisconnect:
         await ws_manager.unregister(run_id, websocket)
+
+
+class SpecRequest(BaseModel):
+	"""YAML or object spec for strategy runs.
+
+	Provide either `yaml` or `spec`.
+	"""
+	yaml: Optional[str] = None
+	spec: Optional[dict] = None
+	source: Literal["yfinance", "mt5", "oanda"] = Field("yfinance")
+	fast: Optional[bool] = False
+
+
+@app.post("/spec/backtest")
+async def backtest_spec(req: SpecRequest) -> JSONResponse:
+	"""Compile a YAML strategy spec and start a backtest run.
+
+	Returns a run_id immediately and streams results over /ws?run_id=...
+	"""
+	try:
+		spec = parse_spec(spec_yaml=req.yaml, spec_obj=req.spec)
+		name, strategy_cls = compile_strategy(spec)
+	except Exception as exc:  # noqa: BLE001
+		return JSONResponse(status_code=400, content={"error": f"Spec error: {exc}"})
+
+	run_id = uuid.uuid4().hex
+	loop = asyncio.get_running_loop()
+
+	from datetime import datetime, timedelta
+	now = datetime.utcnow()
+	start_dt = now - timedelta(days=180)
+	end_dt = now
+
+	asyncio.create_task(
+		run_backtest_task(
+			run_id=run_id,
+			loop=loop,
+			ws_manager=ws_manager,
+			symbols=[spec.symbol],
+			timeframe=spec.timeframe,
+			source=req.source,
+			start=start_dt,
+			end=end_dt,
+			initial_cash=float(spec.backtest.get("cash", 100000)),
+			commission=float(spec.backtest.get("commission", 0.001)),
+			slippage=float(spec.backtest.get("slippage", 0.0)),
+			size_percent=float(spec.backtest.get("positionSize", 90.0)),
+			sizing_mode="percent",
+			lots_per_trade=1.0,
+			include_buy_hold=True,
+			risk_percent=0.01,
+			stop_loss_pips=50,
+			lot_multiplier=1.0,
+			leverage=1.0,
+			stream_delay_ms=(8 if (req.fast or False) else 30),
+			strategy_cls=strategy_cls,
+		),
+	)
+
+	return JSONResponse({"run_id": run_id, "strategy": name})
