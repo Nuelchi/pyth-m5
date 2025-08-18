@@ -1,6 +1,4 @@
-#!/bin/sh
-'''exec' "/Users/mrdoxa/Desktop/pyth m5/.venv/bin/python3.12" "$0" "$@"
-' '''
+#!/Users/mrdoxa/Desktop/trainflow/backtrader.BE/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -1,0 +1,47 @@
+INFO:     Will watch for changes in these directories: ['/Users/mrdoxa/Desktop/Trainflow-next/backtrader.BE']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [36203] using WatchFiles
+INFO:     Started server process [36208]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/backtest_engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36208]
+INFO:     Started server process [36281]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:63287 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 63289) - "WebSocket /ws?run_id=17e2eae2d9cf4791a3d3b523fcb0bf70" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:64939 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 64941) - "WebSocket /ws?run_id=69c6bed6dcf84ac09a0fbed921d0daca" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:64977 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 64979) - "WebSocket /ws?run_id=27fdae530d9f408ea62f97f9eea3967b" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:50632 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 50634) - "WebSocket /ws?run_id=6ac4c74e0b3145e48a2291400a8ca3c8" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:50632 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 50660) - "WebSocket /ws?run_id=380798ec4ab84dbab0aa0f4a5310e22f" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     127.0.0.1:53756 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53966 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 53968) - "WebSocket /ws?run_id=66f6dfad2429413d932c329e006ff3ed" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:54609 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 54612) - "WebSocket /ws?run_id=42e8dbec35d4468e954bdfbb181e21f5" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:61684 - "OPTIONS /backtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61684 - "POST /backtest HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 61686) - "WebSocket /ws?run_id=844e5bd80fcd4f59a43c2841d0590db3" [accepted]
+INFO:     connection open

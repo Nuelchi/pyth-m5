@@ -174,6 +174,43 @@ async def run_backtest_task(
 			self._trade_log = trade_log
 			# Prepare helpers for risk-based sizing
 			self._atr = None
+			# Provide a compatibility attribute for frameworks that expect 'self.orders'
+			# Some translated/user strategies access 'self.orders' to manage open orders.
+			# Backtrader does not define this by default, so we create and maintain it.
+			if not hasattr(self, 'orders'):
+				self.orders = []  # type: ignore[attr-defined]
+			# Initialize common broker aliases expected by user/AI strategies
+			try:
+				self.broker.equity = float(self.broker.getvalue())  # type: ignore[attr-defined]
+				self.broker.cash = float(self.broker.getcash())     # type: ignore[attr-defined]
+				self.broker.value = float(self.broker.getvalue())   # type: ignore[attr-defined]
+			except Exception:
+				pass
+
+		# Track orders created via buy/sell/close to keep 'self.orders' meaningful
+		def buy(self, *args, **kwargs):  # type: ignore[override]
+			order = super().buy(*args, **kwargs)
+			try:
+				self.orders.append(order)  # type: ignore[attr-defined]
+			except Exception:
+				pass
+			return order
+
+		def sell(self, *args, **kwargs):  # type: ignore[override]
+			order = super().sell(*args, **kwargs)
+			try:
+				self.orders.append(order)  # type: ignore[attr-defined]
+			except Exception:
+				pass
+			return order
+
+		def close(self, *args, **kwargs):  # type: ignore[override]
+			order = super().close(*args, **kwargs)
+			try:
+				self.orders.append(order)  # type: ignore[attr-defined]
+			except Exception:
+				pass
+			return order
 
 		def notify_order(self, order):
 			if order.status == order.Completed:
@@ -191,6 +228,11 @@ async def run_backtest_task(
 				}
 				self._trade_log.append(entry)
 				_broadcast(outer_loop, outer_ws_manager, outer_run_id, { 'type': 'trade', 'trade': entry })
+				# Remove from open orders list when completed
+				try:
+					self.orders.remove(order)  # type: ignore[attr-defined]
+				except Exception:
+					pass
 			else:
 				# Broadcast order lifecycle events to help debug rejections/margin
 				dt = bt.num2date(self.datas[0].datetime[0])
@@ -217,6 +259,12 @@ async def run_backtest_task(
 					'price': px,
 					'size': sz,
 				})
+				# Remove from open orders list on terminal states
+				if status_str in ('Rejected', 'Canceled', 'Expired', 'Margin'):
+					try:
+						self.orders.remove(order)  # type: ignore[attr-defined]
+					except Exception:
+						pass
 
 		def notify_trade(self, trade):
 			if trade.isclosed:
@@ -236,6 +284,13 @@ async def run_backtest_task(
 				# Do not broadcast here to avoid duplicate close markers on the same bar
 
 		def next(self):
+			# Keep common broker aliases in sync for compatibility with translated strategies
+			try:
+				self.broker.equity = float(self.broker.getvalue())  # type: ignore[attr-defined]
+				self.broker.cash = float(self.broker.getcash())     # type: ignore[attr-defined]
+				self.broker.value = float(self.broker.getvalue())   # type: ignore[attr-defined]
+			except Exception:
+				pass
 			# User logic
 			try:
 				super().next()
