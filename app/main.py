@@ -16,6 +16,8 @@ from .ws_manager import WebSocketManager
 from .strategy_loader import load_strategy
 from .backtest_engine import run_backtest_task
 from .spec_runner import parse_spec, compile_strategy
+from .tools_api import router as tools_router
+from .agent_api import router as agent_router
 
 
 app = FastAPI(title="Backtest Service", version="0.1.0")
@@ -32,6 +34,8 @@ app.add_middleware(
 # Static frontend
 FRONTEND_DIR = str(Path(__file__).resolve().parents[1] / "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+app.include_router(tools_router)
+app.include_router(agent_router)
 
 ws_manager = WebSocketManager()
 
