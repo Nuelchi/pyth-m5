@@ -26,7 +26,8 @@ app = FastAPI(title="Backtest Service", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # When using wildcard origins, credentials must be disabled per CORS spec
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
