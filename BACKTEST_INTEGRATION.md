@@ -1,6 +1,8 @@
-# 🚀 Backtesting Platform Integration Guide
+# 🚀 TrainFlow - Backtesting Platform Integration Guide
 
 This guide explains how to integrate the Python backtesting backend with your existing Next.js project.
+
+**Owned and developed by SkyEx Corporation**
 
 ## ✨ What's Been Added
 
@@ -151,4 +153,4 @@ Open browser console to see detailed connection logs and error messages.
 
 ---
 
-**🎉 Congratulations!** You now have a fully integrated backtesting platform in your Next.js dashboard! 
+**🎉 Congratulations!** You now have TrainFlow, a fully integrated backtesting platform by SkyEx Corporation, in your Next.js dashboard!

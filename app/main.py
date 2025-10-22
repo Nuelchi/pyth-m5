@@ -20,7 +20,7 @@ from .tools_api import router as tools_router
 from .agent_api import router as agent_router
 
 
-app = FastAPI(title="Backtest Service", version="0.1.0")
+app = FastAPI(title="TrainFlow Backtest Service", description="Backtesting platform owned by SkyEx Corporation", version="0.1.0")
 
 # CORS for development convenience
 app.add_middleware(

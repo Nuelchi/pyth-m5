@@ -112,7 +112,7 @@ class RunRequest(BaseModel):
 def run_lint(req: RunRequest) -> dict:
     if req.project == "frontend":
         cmd = req.command.split() if req.command else ["npm", "run", "lint", "--", "--no-open"]
-        cwd = REPO_ROOT / "trianflo"
+        cwd = REPO_ROOT / "TrainFlow"
     else:
         # No Python linter configured; run a basic syntax check over backend
         cmd = req.command.split() if req.command else ["python", "-m", "py_compile", "app/main.py"]
@@ -125,7 +125,7 @@ def run_lint(req: RunRequest) -> dict:
 def run_typecheck(req: RunRequest) -> dict:
     if req.project == "frontend":
         cmd = req.command.split() if req.command else ["npx", "tsc", "--noEmit"]
-        cwd = REPO_ROOT / "trianflo"
+        cwd = REPO_ROOT / "TrainFlow"
     else:
         # No mypy config; provide stub response
         return {"ok": False, "error": "Python typecheck not configured"}
