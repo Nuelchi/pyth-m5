@@ -85,14 +85,41 @@ import backtrader as bt
 
 class InlineStrategy(bt.Strategy):
     params = dict(fast=10, slow=20)
+
     def __init__(self):
         self.fast = bt.ind.SMA(self.data.close, period=self.p.fast)
         self.slow = bt.ind.SMA(self.data.close, period=self.p.slow)
+        self.co = bt.ind.CrossOver(self.fast, self.slow)  # +1 up, -1 down
+        self.pending_reversal = None  # "long" or "short"
+
     def next(self):
-        if not self.position and self.fast[0] > self.slow[0]:
-            self.buy()
-        elif self.position and self.fast[0] < self.slow[0]:
+        # If we just closed last bar, open the staged reversal now
+        if not self.position and self.pending_reversal:
+            if self.pending_reversal == "long":
+                self.buy()
+            else:
+                self.sell()
+            self.pending_reversal = None
+            return
+
+        # No position: enter only on true cross events
+        if not self.position:
+            if self.co[0] == 1:
+                self.buy()
+            elif self.co[0] == -1:
+                self.sell()
+            return
+
+        # Long position: on down cross, close now and stage short next bar
+        if self.position.size > 0 and self.co[0] == -1:
             self.close()
+            self.pending_reversal = "short"
+            return
+
+        # Short position: on up cross, close now and stage long next bar
+        if self.position.size < 0 and self.co[0] == 1:
+            self.close()
+            self.pending_reversal = "long"
         </textarea>
       </div>
     </div>
